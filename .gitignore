@@ -1,0 +1,9 @@
+.DS_Store
+.env
+*.bak
+*.log
+sing-box
+config.json
+nodes.json
+subscription.url
+state/

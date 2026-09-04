@@ -1,0 +1,10 @@
+#!/bin/sh
+
+echo "== process =="
+pgrep -fl "$HOME/.local/bin/sing-box run -D $HOME/.config/sing-box" || true
+echo "== local port =="
+lsof -nP -iTCP:7890 -sTCP:LISTEN 2>/dev/null || true
+echo "== proxy =="
+scutil --proxy | egrep "HTTPEnable|HTTPSEnable|SOCKSEnable|ProxyAutoConfigEnable|ProxyAutoDiscoveryEnable" || true
+echo "== tail log =="
+tail -n 20 "$HOME/.local/state/sing-box/run.log" 2>/dev/null || true

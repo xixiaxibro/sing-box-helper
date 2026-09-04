@@ -1,0 +1,12 @@
+#!/bin/sh
+set -eu
+
+STATE="$HOME/.config/sing-box/nodes.json"
+NODE_BIN="${NODE_BIN:-node}"
+
+if [ ! -f "$STATE" ]; then
+  echo "No nodes metadata found. Run sb-refresh first." >&2
+  exit 1
+fi
+
+"$NODE_BIN" -e 'const fs=require("fs"); const p=process.argv[1]; const data=JSON.parse(fs.readFileSync(p,"utf8")); const rows=(data.nodes||[]).filter(n=>/(?:美国|美國|\bUS\b|\bUSA\b)/i.test(n.label)); if (!rows.length) { console.log("No reachable US nodes right now."); process.exit(0); } for (const n of rows) console.log(n.tag+"\t"+n.latency_ms+"ms\t"+n.label);' "$STATE"

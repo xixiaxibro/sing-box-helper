@@ -1,0 +1,12 @@
+#!/bin/sh
+set -eu
+
+STATE="$HOME/.config/sing-box/nodes.json"
+CFG="$HOME/.config/sing-box/config.json"
+NODE_BIN="${NODE_BIN:-node}"
+
+if [ -f "$STATE" ]; then
+  "$NODE_BIN" -e 'const fs=require("fs"); const p=process.argv[1]; const data=JSON.parse(fs.readFileSync(p,"utf8")); for (const n of data.nodes||[]) console.log(`${n.tag}\t${n.latency_ms}ms\t${n.label}`);' "$STATE"
+else
+  /usr/bin/perl -0ne 'while (/"type"\s*:\s*"trojan".*?"tag"\s*:\s*"([^"]+)"/sg) { print "$1\n" }' "$CFG"
+fi

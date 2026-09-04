@@ -1,0 +1,59 @@
+#!/bin/sh
+set -eu
+
+STATE_DIR="$HOME/.local/state/sing-box"
+PID_FILE="$STATE_DIR/sing-box.pid"
+RUN_LOG="$STATE_DIR/run.log"
+SING_BOX="$HOME/.local/bin/sing-box"
+CONFIG_DIR="$HOME/.config/sing-box"
+EXPECTED_COMMAND="$SING_BOX run -D $CONFIG_DIR"
+
+mkdir -p "$STATE_DIR"
+
+if [ -f "$PID_FILE" ]; then
+  managed_pid=$(cat "$PID_FILE" 2>/dev/null || true)
+  managed_command=$(ps -p "$managed_pid" -o command= 2>/dev/null || true)
+  if [ "$managed_command" = "$EXPECTED_COMMAND" ]; then
+    echo "sing-box is already running (PID $managed_pid)"
+    "$HOME/.local/bin/sb-status"
+    exit 0
+  fi
+  rm -f "$PID_FILE"
+fi
+
+existing_pid=$(pgrep -f "$EXPECTED_COMMAND" | head -n 1 || true)
+if [ -n "$existing_pid" ]; then
+  printf '%s\n' "$existing_pid" > "$PID_FILE"
+  chmod 600 "$PID_FILE"
+  echo "Adopted existing sing-box process (PID $existing_pid)"
+  "$HOME/.local/bin/sb-status"
+  exit 0
+fi
+
+if [ "${SB_SKIP_REFRESH:-0}" != "1" ]; then
+  "$HOME/.local/bin/sb-refresh" --no-restart || echo "sb-up: refresh failed, starting with existing config" >&2
+fi
+
+"$SING_BOX" check -D "$CONFIG_DIR"
+nohup "$SING_BOX" run -D "$CONFIG_DIR" > "$RUN_LOG" 2>&1 &
+new_pid=$!
+
+for attempt in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
+  if ! kill -0 "$new_pid" 2>/dev/null; then
+    echo "sb-up: sing-box exited during startup" >&2
+    tail -n 20 "$RUN_LOG" >&2 || true
+    exit 1
+  fi
+  if lsof -nP -iTCP:7890 -sTCP:LISTEN 2>/dev/null | grep -q sing-box; then
+    printf '%s\n' "$new_pid" > "$PID_FILE"
+    chmod 600 "$PID_FILE"
+    "$HOME/.local/bin/sb-status"
+    exit 0
+  fi
+  sleep 0.1
+done
+
+kill "$new_pid" 2>/dev/null || true
+echo "sb-up: timed out waiting for 127.0.0.1:7890" >&2
+tail -n 20 "$RUN_LOG" >&2 || true
+exit 1

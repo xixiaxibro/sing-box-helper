@@ -1,0 +1,32 @@
+#!/bin/sh
+set -eu
+
+CFG="$HOME/.config/sing-box/config.json"
+TAG="${1:-}"
+
+if [ -z "$TAG" ]; then
+  echo "Usage: sb-use <tag|auto>" >&2
+  exit 1
+fi
+
+if [ "$TAG" != "auto" ] && ! "$HOME/.local/bin/sb-nodes" | awk '{print $1}' | grep -Fx "$TAG" >/dev/null 2>&1; then
+  echo "Tag not found: $TAG" >&2
+  echo "Available tags:" >&2
+  "$HOME/.local/bin/sb-nodes" >&2
+  exit 1
+fi
+
+cp -p "$CFG" "$CFG.bak"
+NEWDEF="$TAG" /usr/bin/perl -0pi -e 's/("tag"\s*:\s*"select".*?"default"\s*:\s*")[^"]+("\s*)/$1$ENV{NEWDEF}$2/s' "$CFG"
+
+if ! "$HOME/.local/bin/sing-box" check -D "$HOME/.config/sing-box"; then
+  mv "$CFG.bak" "$CFG"
+  exit 1
+fi
+
+if pgrep -f "$HOME/.local/bin/sing-box run -D $HOME/.config/sing-box" >/dev/null 2>&1; then
+  "$HOME/.local/bin/sb-down"
+  SB_SKIP_REFRESH=1 "$HOME/.local/bin/sb-up"
+else
+  echo "Switched default node to: $TAG"
+fi

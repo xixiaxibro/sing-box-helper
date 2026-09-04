@@ -1,0 +1,5 @@
+#!/bin/sh
+set -eu
+
+"$HOME/.local/bin/sb-refresh" --no-restart
+"$HOME/.local/bin/sing-box" check -D "$HOME/.config/sing-box"
